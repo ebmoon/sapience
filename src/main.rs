@@ -1,5 +1,13 @@
 use clap::Parser;
-use std::{fs, path::PathBuf};
+use sapience::{
+    sexp::Sexp,
+    sexp::Program,
+};
+use std::{
+    convert::TryFrom,
+    fs,
+    path::PathBuf,
+};
 
 #[derive(Parser)]
 #[clap(version, author, about)]
@@ -13,5 +21,13 @@ fn main() {
     let input: String = fs::read_to_string(opts.file)
         .expect("Error reading input");
 
-    println!("{}", input);
+    // Parse a list of exprs
+    let prog: Vec<Sexp> = Program::parse(&input)
+        .expect("Failed to parse program")
+        .0.into_iter()
+        .map(|x| {
+            x.try_into().expect("Input is not a valid list of expressions")
+        }).collect();
+
+    println!("{:#?}", prog);
 }

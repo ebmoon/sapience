@@ -11,4 +11,6 @@ edition = "2021"
 [dependencies]
 clap = { version = "4.0.26", features = ["derive"] }
 egg = "0.9.1"
+nom = "7.1.1"
 rsmt2 = "0.16.2"
+thiserror = "1.0.37"
