@@ -17,6 +17,10 @@ use crate::{
 /// Simplest language to use with babble
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum SimpleOp {
+	/// An integer literal
+	Int(i32),
+	/// A boolean literal
+	Bool(bool),
     /// A function application
     Apply,
     /// A de Bruijn-indexed variable
@@ -38,11 +42,20 @@ pub enum SimpleOp {
 impl Arity for SimpleOp {
     fn min_arity(&self) -> usize {
         match self {
-            Self::Var(_) | Self::Symbol(_) => 0,
-            Self::Lambda | Self::Shift | Self::LibVar(_) | Self::List => 1,
+            Self::Var(_) | Self::Symbol(_) 
+			| Self::Int(_) | Self::Bool(_) => 0,
+            Self::Lambda | Self::Shift 
+			| Self::LibVar(_) | Self::List => 1,
             Self::Apply | Self::Lib(_) => 2,
         }
     }
+
+	fn max_arity(&self) -> Option<usize> {
+		match self {
+			Self::List => None,
+			other => Some(other.min_arity()),
+		}
+	}
 }
 
 impl Display for SimpleOp {
@@ -56,6 +69,12 @@ impl Display for SimpleOp {
             }
             Self::LibVar(libid) => {
                 return write!(f, "l{}", libid);
+            }
+			Self::Bool(b) => {
+                return write!(f, "{}", b);
+            }
+            Self::Int(i) => {
+                return write!(f, "{}", i);
             }
             Self::Var(index) => {
                 return write!(f, "${}", index);
@@ -82,6 +101,8 @@ impl FromStr for SimpleOp {
                 .parse()
                 .map(Self::Var)
                 .or_else(|_| input.parse().map(Self::LibVar))
+                .or_else(|_| input.parse().map(Self::Int))
+                .or_else(|_| input.parse().map(Self::Bool))
                 .or_else(|_| {
                     input
                         .strip_prefix("lib ")

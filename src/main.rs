@@ -1,4 +1,5 @@
 use clap::Parser;
+use egg::{AstSize, CostFunction, RecExpr};
 use sapience::{
     sexp::Program,
     ast_node::{combine_exprs, Expr, Pretty},
@@ -30,5 +31,11 @@ fn main() {
             x.try_into().expect("Input is not a valid list of expressions")
         }).collect();
 
-    println!("{:#?}", prog);
+    
+    let initial_expr: RecExpr<_> = combine_exprs(prog.clone());
+    let initial_cost = AstSize.cost_rec(&initial_expr);
+
+    println!("{:?}", initial_expr.clone());
+    println!("Initial expression (cost {}):", initial_cost);
+    println!();
 }

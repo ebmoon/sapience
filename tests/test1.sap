@@ -1,0 +1,2 @@
+(apply (lambda 1) 2)
+(apply (lambda 2) 1)
