@@ -1,8 +1,10 @@
 pub mod ast_node;
+pub mod beam;
 pub mod co_occurrence;
 mod dfta;
 pub mod lang;
 pub mod learn;
+pub mod learner;
 pub mod rewrites;
 pub mod sexp;
 pub mod teachable;

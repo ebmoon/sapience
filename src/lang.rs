@@ -2,14 +2,14 @@
 
 use std::{
     convert::Infallible,
-    fmt::{self, Display, Formatter},
+    fmt::{self, Display, Formatter, Write},
     str::FromStr,
 };
 
 use egg::Symbol;
 
 use crate::{
-    ast_node::{Arity, AstNode},
+    ast_node::{Arity, AstNode, Expr, Precedence, Printable, Printer},
     learn::{LibId, ParseLibIdError},
     teachable::{BindingExpr, DeBruijnIndex, Teachable},
 };
@@ -21,6 +21,8 @@ pub enum SimpleOp {
 	Int(i32),
 	/// A boolean literal
 	Bool(bool),
+    /// A conditional expression
+    If,
     /// A function application
     Apply,
     /// A de Bruijn-indexed variable
@@ -42,11 +44,10 @@ pub enum SimpleOp {
 impl Arity for SimpleOp {
     fn min_arity(&self) -> usize {
         match self {
-            Self::Var(_) | Self::Symbol(_) 
-			| Self::Int(_) | Self::Bool(_) => 0,
-            Self::Lambda | Self::Shift 
-			| Self::LibVar(_) | Self::List => 1,
+            Self::Var(_) | Self::Symbol(_) | Self::Int(_) | Self::Bool(_) => 0,
+            Self::Lambda | Self::Shift | Self::LibVar(_) | Self::List => 1,
             Self::Apply | Self::Lib(_) => 2,
+            Self::If => 3,
         }
     }
 
@@ -63,6 +64,7 @@ impl Display for SimpleOp {
         let s = match self {
             Self::Apply => "@",
             Self::Lambda => "λ",
+            Self::If => "if",
             Self::Shift => "shift",
             Self::Lib(libid) => {
                 return write!(f, "lib {}", libid);
@@ -144,5 +146,47 @@ impl Teachable for SimpleOp {
 
     fn list() -> Self {
         Self::List
+    }
+}
+
+impl Printable for SimpleOp {
+    fn precedence(&self) -> Precedence {
+        match self {
+            Self::Bool(_) | Self::Int(_) | Self::Symbol(_)
+                | Self::Var(_) | Self::LibVar(_) => 60,
+            Self::List => 50,
+            Self::Apply | Self::Shift => 40,
+            Self::If => 20,
+            Self::Lambda | Self::Lib(_) => 10,
+        }
+    }
+
+    fn print_naked<W: Write>(expr: &Expr<Self>, printer: &mut Printer<W>) -> fmt::Result {
+        match (expr.0.operation(), expr.0.args()) {
+            (&Self::Int(i), []) => {
+                write!(printer.writer, "{}", i)
+            }
+            (&Self::Bool(b), []) => {
+                write!(printer.writer, "{}", b)
+            }
+            (&Self::Symbol(sym), []) => {
+                write!(printer.writer, "{}", sym)
+            }
+            (&Self::If, [cond, then, els]) => {
+                printer.writer.write_str("if ")?;
+                printer.print_in_context(cond, 0)?; // children do not need parens
+                printer.writer.write_str(" then ")?;
+                printer.print_in_context(then, 0)?;
+                printer.writer.write_str(" else ")?;
+                printer.print_in_context(els, 0)
+            }
+            (&Self::List, ts) => {
+                let elem = |p: &mut Printer<W>, i: usize| {
+                    p.print_in_context(&ts[i], 0) // children do not need parens
+                };
+                printer.in_brackets(|p| p.indented(|p| p.vsep(elem, ts.len(), ",")))
+            }
+            (op, _) => write!(printer.writer, "{} ???", op),
+        }
     }
 }

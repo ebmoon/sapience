@@ -4,6 +4,7 @@ use sapience::{
     sexp::Program,
     ast_node::{combine_exprs, Expr, Pretty},
     lang::SimpleOp,
+    learner::Learner,
 };
 use std::{
     convert::TryFrom,
@@ -16,6 +17,12 @@ use std::{
 struct Opts {
     // The input file. The default is stdin.
     file: PathBuf,
+
+    #[clap(long, default_value_t = 10)]
+    beams: usize,
+
+    #[clap(long, default_value_t = 1)]
+    lps: usize,
 }
 
 fn main() {
@@ -38,4 +45,10 @@ fn main() {
     println!("{:?}", initial_expr.clone());
     println!("Initial expression (cost {}):", initial_cost);
     println!();
+    
+    let dsrs = vec![];
+
+    let learner = Learner::gen(prog, dsrs);
+
+    learner.learn("harness/data_gen/res.csv");
 }
