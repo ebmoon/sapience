@@ -48,7 +48,7 @@ fn main() {
     
     let dsrs = vec![];
 
-    let learner = Learner::gen(prog, dsrs);
+    let learner = Learner::gen(prog, dsrs, opts.beams, opts.lps);
 
     learner.learn("harness/data_gen/res.csv");
 }

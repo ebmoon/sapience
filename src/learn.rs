@@ -111,15 +111,13 @@ where
     /// enodes to find their common structure.
     pub fn new<A: Analysis<AstNode<Op>>>(
         egraph: &'a EGraph<AstNode<Op>, A>,
-        learn_constants: bool,
-        max_arity: Option<usize>,
         co_occurrences: CoOccurrences,
     ) -> Self {
         let mut learned_lib = Self {
             aus_by_state: BTreeMap::new(),
             nontrivial_aus: BTreeSet::new(),
-            learn_constants,
-            max_arity,
+            learn_constants: true,
+            max_arity: None,
             co_occurrences,
         };
         let dfta = Dfta::from(egraph);
