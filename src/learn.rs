@@ -425,8 +425,8 @@ where
 #[must_use]
 fn reify<Op, T>(ix: LibId, au: PartialExpr<Op, T>) -> PartialExpr<Op, T>
 where
-    Op: Arity + Teachable,
-    T: Eq,
+    Op: Arity + Teachable + Debug,
+    T: Eq + Debug,
 {
     let mut metavars = Vec::new();
 

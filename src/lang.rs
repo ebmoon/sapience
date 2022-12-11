@@ -25,6 +25,8 @@ pub enum SimpleOp {
     If,
     /// A function application
     Apply,
+    /// Integer Addition
+    Plus,
     /// A de Bruijn-indexed variable
     Var(DeBruijnIndex),
     /// A reference to a lib fn
@@ -44,9 +46,13 @@ pub enum SimpleOp {
 impl Arity for SimpleOp {
     fn min_arity(&self) -> usize {
         match self {
-            Self::Var(_) | Self::Symbol(_) | Self::Int(_) | Self::Bool(_) => 0,
+            Self::Var(_) 
+            | Self::LibVar(_)
+            | Self::Symbol(_) 
+            | Self::Int(_) 
+            | Self::Bool(_) => 0,
             Self::Lambda | Self::Shift | Self::LibVar(_) | Self::List => 1,
-            Self::Apply | Self::Lib(_) => 2,
+            Self::Apply | Self::Plus | Self::Lib(_) => 2,
             Self::If => 3,
         }
     }
@@ -66,6 +72,7 @@ impl Display for SimpleOp {
             Self::Lambda => "λ",
             Self::If => "if",
             Self::Shift => "shift",
+            Self::Plus => "+",
             Self::Lib(libid) => {
                 return write!(f, "lib {}", libid);
             }
@@ -99,6 +106,7 @@ impl FromStr for SimpleOp {
             "apply" | "@" => Self::Apply,
             "lambda" | "λ" => Self::Lambda,
             "list" => Self::List,
+            "+" => Self::Plus,
             input => input
                 .parse()
                 .map(Self::Var)
@@ -126,7 +134,7 @@ impl Teachable for SimpleOp {
             BindingExpr::Lib(ix, bound_value, body) => {
                 AstNode::new(Self::Lib(ix), [bound_value, body])
             }
-            BindingExpr::LibVar(ix) => AstNode::new(Self::LibVar(ix), []),
+            BindingExpr::LibVar(ix) => AstNode::leaf(Self::LibVar(ix)),
             BindingExpr::Shift(body) => AstNode::new(Self::Shift, [body]),
         }
     }
@@ -155,6 +163,7 @@ impl Printable for SimpleOp {
             Self::Bool(_) | Self::Int(_) | Self::Symbol(_)
                 | Self::Var(_) | Self::LibVar(_) => 60,
             Self::List => 50,
+            Self::Plus => 45,
             Self::Apply | Self::Shift => 40,
             Self::If => 20,
             Self::Lambda | Self::Lib(_) => 10,

@@ -42,11 +42,14 @@ fn main() {
     let initial_expr: RecExpr<_> = combine_exprs(prog.clone());
     let initial_cost = AstSize.cost_rec(&initial_expr);
 
-    println!("{:?}", initial_expr.clone());
+    println!("{}", initial_expr.clone());
     println!("Initial expression (cost {}):", initial_cost);
     println!();
     
-    let dsrs = vec![];
+    let dsrs = vec![
+        egg::rewrite!("plus commute"; "(+ ?x ?y)" => "(+ ?y ?x)"),
+        egg::rewrite!("plus zero"; "(+ ?x 0)" => "?x"),
+    ];
 
     let learner = Learner::gen(prog, dsrs, opts.beams, opts.lps);
 

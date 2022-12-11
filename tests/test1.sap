@@ -1,2 +1,3 @@
-(apply (lambda 1) 2)
-(apply (lambda 2) 1)
+(apply (lambda (+ 1 2)) 3)
+(apply (lambda (+ 2 1)) 3)
+(apply (lambda 2) 3)
