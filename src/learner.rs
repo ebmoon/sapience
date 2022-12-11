@@ -1,11 +1,11 @@
 use crate::{
-    beam::PartialLibCost,
+    beam::{PartialLibCost, LibExtractor},
     co_occurrence::COBuilder,
     sexp::Program,
     ast_node::{Arity, AstNode, Expr, Pretty, Printable},
     lang::SimpleOp,
-    teachable::Teachable,
-    learn::LearnedLibrary,
+    teachable::{Teachable, BindingExpr},
+    learn::{LearnedLibrary, LibId},
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -17,7 +17,17 @@ use std::{
     time::{Duration, Instant},
 };
 use log::{debug, info};
-use egg::{EGraph, Id, RecExpr, Rewrite, Runner};
+use egg::{
+    AstSize, 
+    Analysis, 
+    CostFunction, 
+    EGraph, 
+    Id, 
+    RecExpr, 
+    Rewrite, 
+    Runner, 
+    Language,
+};
 
 // A set of expressions to extract a library
 pub struct Learner<Op> {
@@ -101,7 +111,7 @@ where
 
     fn run_egraph(
         &self, roots: &[Id], egraph: EGraph<AstNode<Op>, PartialLibCost>
-    ) -> Expr<Op> {
+    ) -> RecExpr<AstNode<Op>> {
         let timeout = Duration::from_secs(600);
 
         let runner = Runner::<_, _, ()>::new(PartialLibCost::empty())
@@ -121,6 +131,10 @@ where
 
         let lib_rewrites: Vec<_> = learned_lib.rewrites().collect();
         
+        for rw in &lib_rewrites {
+            println!("{:?}", rw);
+        }
+       
         let runner = Runner::<_, _, ()>::new(PartialLibCost::new(
             self.beams,
             self.lps,
@@ -137,7 +151,6 @@ where
 
         println!("{:?}", cs);
 
-
         let all_libs: Vec<_> = learned_lib.libs().collect();
         let mut chosen_rewrites = Vec::new();
         for lib in &cs.set[0].libs {
@@ -147,6 +160,95 @@ where
 
         println!("{:?}", chosen_rewrites);
 
-        unimplemented!()
+        let lifted = Learner::apply_libs(aeg.clone(), &roots, &chosen_rewrites);
+        let final_cost = AstSize.cost_rec(&lifted);
+
+        info!("final cost: {}", final_cost);
+        println!("{}", lifted.clone());
+
+        lifted
+    }
+
+    fn apply_libs<A>(
+        egraph: EGraph<AstNode<Op>, A>,
+        roots: &[Id],
+        rewrites: &[Rewrite<AstNode<Op>, A>],
+    ) -> RecExpr<AstNode<Op>>
+    where
+        Op: Clone
+            + Teachable
+            + Ord
+            + Debug
+            + Display
+            + Hash
+            + Arity
+            + Send
+            + Sync,
+        A: Analysis<AstNode<Op>> + Default + Clone,
+    {
+        let mut fin = Runner::<_, _, ()>::new(Default::default())
+            .with_egraph(egraph)
+            .run(rewrites.iter())
+            .egraph;
+        let root = fin.add(AstNode::new(Op::list(), roots.iter().copied()));
+
+        let mut extractor = LibExtractor::new(&fin);
+        let best = extractor.best(root);
+        Learner::lift_libs(best)
+    }
+
+    /// Lifts libs
+    fn lift_libs(expr: RecExpr<AstNode<Op>>) -> RecExpr<AstNode<Op>>
+    where
+        Op: Clone + Teachable + Ord + Debug + Hash,
+    {
+        let orig: Vec<AstNode<Op>> = expr.as_ref().to_vec();
+        let mut seen = HashMap::new();
+
+        fn build<Op: Clone + Teachable + Debug>(
+            orig: &[AstNode<Op>],
+            cur: Id,
+            mut seen: impl FnMut(LibId, Id),
+        ) -> AstNode<Op> {
+            match orig[Into::<usize>::into(cur)].as_binding_expr() {
+                Some(BindingExpr::Lib(id, lam, c)) => {
+                    seen(id, *lam);
+                    build(orig, *c, seen)
+                }
+                _ => orig[Into::<usize>::into(cur)].clone(),
+            }
+        }
+
+        let rest = orig[orig.len() - 1].build_recexpr(|id| {
+            build(&orig, id, |k, v| {
+                seen.insert(k, v);
+            })
+        });
+        let mut res = rest.as_ref().to_vec();
+
+        // Work queue for functions we still have to do
+        let mut q: Vec<(LibId, Id)> = seen.iter().map(|(k, v)| (*k, *v)).collect();
+
+        // TODO: order based on libs dependency w each other?
+        while let Some((lib, expr)) = q.pop() {
+            let body = res.len() - 1;
+            let value: Vec<_> = orig[Into::<usize>::into(expr)]
+                .build_recexpr(|id| {
+                    build(&orig, id, |k, v| {
+                        if let None = seen.insert(k, v) {
+                            q.push((k, v));
+                        }
+                    })
+                })
+                .as_ref()
+                .iter()
+                .cloned()
+                .map(|x| x.map_children(|x| (usize::from(x) + res.len()).into()))
+                .collect();
+            res.extend(value);
+            res.push(Teachable::lib(lib, Id::from(res.len() - 1), Id::from(body)));
+        }
+
+        res.into()
     }
 }
