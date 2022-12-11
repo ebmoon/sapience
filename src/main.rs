@@ -26,6 +26,8 @@ struct Opts {
 }
 
 fn main() {
+    env_logger::init();
+
     let opts: Opts = Opts::parse();
     let input: String = fs::read_to_string(opts.file)
         .expect("Error reading input");

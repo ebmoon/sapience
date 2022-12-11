@@ -130,10 +130,6 @@ where
         learned_lib.deduplicate(&aeg);
 
         let lib_rewrites: Vec<_> = learned_lib.rewrites().collect();
-        
-        for rw in &lib_rewrites {
-            println!("{:?}", rw);
-        }
        
         let runner = Runner::<_, _, ()>::new(PartialLibCost::new(
             self.beams,
@@ -149,7 +145,7 @@ where
         let mut cs = egraph[egraph.find(root)].data.clone();
         cs.set.sort_unstable_by_key(|elem| elem.full_cost);
 
-        println!("{:?}", cs);
+        debug!("cs: {:?}", cs);
 
         let all_libs: Vec<_> = learned_lib.libs().collect();
         let mut chosen_rewrites = Vec::new();
@@ -158,13 +154,13 @@ where
             chosen_rewrites.push(lib_rewrites[lib.0 .0].clone());
         }
 
-        println!("{:?}", chosen_rewrites);
+        debug!("chosen rewrites: {:?}", chosen_rewrites);
 
         let lifted = Learner::apply_libs(aeg.clone(), &roots, &chosen_rewrites);
         let final_cost = AstSize.cost_rec(&lifted);
 
         info!("final cost: {}", final_cost);
-        println!("{}", lifted.clone());
+        debug!("{}", lifted.clone());
 
         lifted
     }

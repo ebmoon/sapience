@@ -163,6 +163,7 @@ where
             let searcher: Pattern<_> = au.clone().into();
             let applier: Pattern<_> = reify(LibId(i), au.clone()).into();
             let name = format!("anti-unify {}", i);
+            debug!("From anti-unification {:?}", au.clone());
             debug!("Found rewrite \"{}\":\n{} => {}", name, searcher, applier);
 
             // Both patterns contain the same variables, so this can never fail.
@@ -448,12 +449,16 @@ where
 
         let mut res = PartialExpr::Hole(index);
 
+        /*
         for i in (0..num_binders).rev() {
             res = Op::apply(res, Op::var(i).into()).into();
         }
+        */
 
         res
     });
+
+    debug!("{:?}", fun);
 
     // foo (\. \. $0 $2 ?hole) => foo (\. \. $0 $2 ?$2)
     //                                          ^ binders = 2
@@ -471,6 +476,7 @@ where
         _ => node.into(),
     });
 
+    debug!("{:?}", fun);
     // foo (\. \. $0 $2 ?$2) => foo (\. \. $0 $3 ?$2)
 
     let mut fun = fun.fill(|index| Op::var(index).into());
@@ -479,21 +485,25 @@ where
     for _ in 0..(metavars.len() + max_locals) {
         fun = Op::lambda(fun).into();
     }
+    debug!("{:?}", fun);
 
     // Now apply the new function to the metavariables in reverse order so they
     // match the correct de Bruijn indexed variable.
     let mut body = Op::lib_var(ix).into();
     while let Some((metavar, binders)) = metavars.pop() {
         let mut fn_arg = PartialExpr::Hole(metavar);
+        /*
         for _i in 0..binders {
             fn_arg = Op::lambda(fn_arg).into();
         }
+        */
         body = Op::apply(body, fn_arg).into();
     }
 
     for index in 0..max_locals {
         body = Op::apply(body, Op::var(index).into()).into();
     }
+    debug!("{:?}", body);
 
     PartialExpr::Node(BindingExpr::Lib(ix, fun, body).into())
 }   
