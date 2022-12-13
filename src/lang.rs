@@ -5,14 +5,12 @@ use std::{
     fmt::{self, Display, Formatter, Write},
     str::FromStr,
 };
-
-use egg::Symbol;
-
 use crate::{
     ast_node::{Arity, AstNode, Expr, Precedence, Printable, Printer},
     learn::{LibId, ParseLibIdError},
     teachable::{BindingExpr, DeBruijnIndex, Teachable},
 };
+use egg::{Symbol};
 
 /// Simplest language to use with babble
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]

@@ -21,3 +21,5 @@ rsmt2 = "0.16.2"
 serde = { version = "1.0.147", features = ["derive"] }
 thiserror = "1.0.37"
 ruler = { path = "../ruler" }
+num = "0.4.0"
+num-bigint = { version = "0.4.3", features = ["rand"] }
