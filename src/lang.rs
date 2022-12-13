@@ -110,10 +110,10 @@ impl FromStr for SimpleOp {
             "apply" | "@" => Self::Apply,
             "lambda" | "λ" => Self::Lambda,
             "list" => Self::List,
-            "+" => Self::Op(input.into()),
-            "-" => Self::Op(input.into()),
-            "*" => Self::Op(input.into()),
-            "/" => Self::Op(input.into()),
+            // "+" => Self::Op(input.into()),
+            // "-" => Self::Op(input.into()),
+            // "*" => Self::Op(input.into()),
+            // "/" => Self::Op(input.into()),
             "if" => Self::If,
             input => input
                 .parse()
@@ -127,7 +127,7 @@ impl FromStr for SimpleOp {
                         .ok_or(ParseLibIdError::NoLeadingL)
                         .and_then(|x| x.parse().map(Self::Lib))
                 })
-                .unwrap_or_else(|_| Self::Symbol(input.into())),
+                .unwrap_or_else(|_| Self::Op(input.into())),
         };
         Ok(op)
     }
@@ -169,9 +169,8 @@ impl Printable for SimpleOp {
     fn precedence(&self) -> Precedence {
         match self {
             Self::Bool(_) | Self::Int(_) | Self::Symbol(_)
-                | Self::Var(_) | Self::LibVar(_) => 60,
+                | Self::Var(_) | Self::LibVar(_) | Self::Op(_) => 60,
             Self::List => 50,
-            Self::Op(_) => 45,
             Self::Apply | Self::Shift => 40,
             Self::If => 20,
             Self::Lambda | Self::Lib(_) => 10,

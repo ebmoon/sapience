@@ -11,6 +11,7 @@ use std::{
     fs,
     path::PathBuf,
 };
+use ruler;
 
 #[derive(Parser)]
 #[clap(version, author, about)]

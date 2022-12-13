@@ -20,3 +20,4 @@ nom = "7.1.1"
 rsmt2 = "0.16.2"
 serde = { version = "1.0.147", features = ["derive"] }
 thiserror = "1.0.37"
+ruler = { path = "../ruler" }
