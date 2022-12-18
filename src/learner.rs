@@ -27,6 +27,8 @@ use egg::{
     Rewrite, 
     Runner, 
     Language,
+    Pattern,
+    Searcher,
 };
 
 // A set of expressions to extract a library
@@ -89,7 +91,7 @@ where
     }
 
     /// Runs learning
-    pub fn learn(self, csv_path: &str) {
+    pub fn learn(self) -> RecExpr<AstNode<Op>> {
         // let file = std::fs::File::create(csv_path).unwrap();
         // let mut writer: CsvWriter = csv::Writer::from_writer(Box::new(file));
         
@@ -103,10 +105,18 @@ where
             .collect::<Vec<_>>();
         egraph.rebuild();
     
-        self.run_egraph(&roots, egraph);
+        self.run_egraph(&roots, egraph)
+    }
 
-        // To-Do: Do library learning
-        ()
+    fn rewrite_score(
+        egraph: &EGraph<AstNode<Op>, PartialLibCost>,
+        rw: &Rewrite<AstNode<Op>, PartialLibCost>
+    ) -> usize {
+        let match_searcher = rw.searcher.n_matches(&egraph);
+        let applier_pattern = rw.applier.get_pattern_ast().unwrap().clone();
+        let match_applier = Pattern::new(applier_pattern).n_matches(&egraph);
+
+        match_searcher * match_applier
     }
 
     fn run_egraph(
@@ -114,11 +124,20 @@ where
     ) -> RecExpr<AstNode<Op>> {
         let timeout = Duration::from_secs(600);
 
+        info!("Number of rewrites: {}", self.dsrs.len());
+
+        let mut useful_dsrs = self.dsrs.clone().into_iter()
+            .filter(|rw| (Self::rewrite_score(&egraph, rw) > 0))
+            .collect::<Vec<Rewrite<AstNode<Op>, PartialLibCost>>>();
+        useful_dsrs.sort_unstable_by_key(|rw| Self::rewrite_score(&egraph, rw));
+
+        info!("Choose {} rewrites that may be useful", useful_dsrs.len());
+
         let runner = Runner::<_, _, ()>::new(PartialLibCost::empty())
             .with_egraph(egraph)
             .with_iter_limit(3) 
             .with_time_limit(timeout)
-            .run(&self.dsrs);
+            .run(&useful_dsrs);
 
         let aeg = runner.egraph;
 
@@ -157,10 +176,6 @@ where
         debug!("chosen rewrites: {:?}", chosen_rewrites);
 
         let lifted = Learner::apply_libs(aeg.clone(), &roots, &chosen_rewrites);
-        let final_cost = AstSize.cost_rec(&lifted);
-
-        info!("final cost: {}", final_cost);
-        debug!("{}", lifted.clone());
 
         lifted
     }

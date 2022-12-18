@@ -1,6 +1,7 @@
 use clap::Parser;
-use egg::{AstSize, CostFunction, RecExpr};
+use egg::{AstSize, CostFunction, RecExpr, Rewrite, Pattern};
 use sapience::{
+    beam::PartialLibCost,
     sexp::Program,
     ast_node::{combine_exprs, Expr, Pretty, AstNode},
     lang::SimpleOp,
@@ -53,11 +54,6 @@ fn main() {
     println!("{}", initial_expr.clone());
     println!("Initial expression (cost {}):", initial_cost);
     println!();
-    
-    let dsrs = vec![
-        egg::rewrite!("plus commute"; "(+ ?x ?y)" => "(+ ?y ?x)"),
-        egg::rewrite!("plus zero"; "(+ ?x 0)" => "?x"),
-    ];
 
     // Basic rewrite rules of lambda calculus
     let lam_rules = [
@@ -65,7 +61,7 @@ fn main() {
     ];
 
     let mut prior_rules = Ruleset::<AstNode<SimpleOp>>::default();
-    // prior_rules.extend(Ruleset::from_str_vec(&lam_rules));
+    prior_rules.extend(Ruleset::from_str_vec(&lam_rules));
 
     // Constants and symbols of LIA
     let workload = Workload::iter_lang(
@@ -83,11 +79,23 @@ fn main() {
         Limits::default(),
     );
     
-    for eq in rules.0.iter() {
-        println!("{:?}", eq.clone());
-    }
+    let dsrs: Vec<Rewrite<AstNode<SimpleOp>, PartialLibCost>> = rules
+        .0.values().enumerate()
+        .map(|(i, rw)| {
+            let searcher: Pattern<_> = rw.lhs.to_owned();
+            let applier: Pattern<_> = rw.rhs.to_owned();
+            let name = format!("ruler {}", i);
+            
+            Rewrite::new(name, searcher, applier).unwrap_or_else(|_| unreachable!())
+        })
+        .collect();
 
     let learner = Learner::gen(prog, dsrs, opts.beams, opts.lps);
 
-    learner.learn("harness/data_gen/res.csv");
+    let lifted = learner.learn();
+    let final_cost = AstSize.cost_rec(&lifted);
+
+    println!("{}", lifted.clone());
+    println!("final cost: {}", final_cost);
+
 }
