@@ -1,22 +1,17 @@
-use clap::Parser;
-use enumo::{Ruleset, Workload};
-use serde::{Deserialize, Serialize};
+use std::hash::BuildHasherDefault;
 
 pub use bv::*;
-pub use derive::*;
+use enumo::Ruleset;
 pub use equality::*;
 pub use interval::*;
 pub use language::*;
-pub use synth::*;
 pub use util::*;
 
 mod bv;
-mod derive;
 pub mod enumo;
 pub mod equality;
-mod interval;
-mod language;
-pub mod synth;
+pub mod interval;
+pub mod language;
 pub mod util;
 
 pub type Id = egg::Id;
@@ -25,41 +20,51 @@ pub type Var = egg::Var;
 pub type EGraph<L, N> = egg::EGraph<L, N>;
 pub type Pattern<L> = egg::Pattern<L>;
 
-pub struct SynthParams<L: SynthLanguage> {
-    pub prior_rules: Ruleset<L>,
+/// Faster hashMap implementation used in rustc
+pub type HashMap<K, V> = rustc_hash::FxHashMap<K, V>;
+/// Faster hashSet implementation used in rustc
+pub type HashSet<K> = rustc_hash::FxHashSet<K>;
+/// IndexMap data implementation used in rustc
+pub type IndexMap<K, V> = indexmap::IndexMap<K, V, BuildHasherDefault<rustc_hash::FxHasher>>;
 
-    pub workload: Workload,
-
-    ////////////////
-    // eqsat args //
-    ////////////////
-    pub node_limit: usize,
-    pub iter_limit: usize,
-    pub time_limit: u64,
+/// Validation result
+#[derive(Debug, Clone)]
+pub enum ValidationResult {
+    Valid,
+    Invalid,
+    Unknown,
 }
 
-/// All parameters for rule synthesis.
-#[derive(Parser, Deserialize, Serialize)]
-#[clap(rename_all = "kebab-case")]
-pub struct DeriveParams {
-    in1: String,
-    in2: String,
-    /// Output file name
-    #[clap(long, default_value = "out.json")]
-    outfile: String,
-
-    #[clap(long, default_value = "10")]
-    iter_limit: usize,
-
-    #[clap(long)]
-    ci: bool,
+// Cost function for ast size in the domain
+// Penalizes ops not in the domain
+pub struct ExtractableAstSize;
+impl<L: SynthLanguage> egg::CostFunction<L> for ExtractableAstSize {
+    type Cost = usize;
+    fn cost<C>(&mut self, enode: &L, mut costs: C) -> Self::Cost
+    where
+        C: FnMut(Id) -> Self::Cost,
+    {
+        if enode.is_allowed_op() {
+            enode.fold(1, |sum, id| sum.saturating_add(costs(id)))
+        } else {
+            usize::max_value()
+        }
+    }
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(bound = "L: SynthLanguage")]
-pub struct Report<L: SynthLanguage> {
-    pub time: f64,
-    pub num_rules: usize,
-    pub prior_rws: Vec<Equality<L>>,
-    pub new_rws: Vec<Equality<L>>,
+#[derive(Debug, Clone, Copy)]
+pub struct Limits {
+    pub time: u64,
+    pub iter: usize,
+    pub node: usize,
+}
+
+impl Default for Limits {
+    fn default() -> Self {
+        Self {
+            time: 30,
+            iter: 3,
+            node: 300000,
+        }
+    }
 }

@@ -21,11 +21,11 @@ use ruler::{
     map,
     util::*,
     SynthLanguage, 
-    Synthesizer, 
     SynthAnalysis, 
     CVec, 
     ValidationResult,
 };
+use z3::ast::Ast;
 
 /// Simplest language to use with babble
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Copy)]
@@ -303,7 +303,7 @@ impl SynthLanguage for AstNode<SimpleOp> {
             SimpleOp::Op(sym) if sym.as_str() == "!" => {
                 let x = &args[0];
                 map!(get_cvec, x => {
-                    if *x != 0i32 { Some(1) } else { Some(0) }
+                    if *x == 0i32 { Some(1) } else { Some(0) }
                 })
             },
             SimpleOp::Op(sym) if sym.as_str() == "&&" => {
@@ -313,27 +313,20 @@ impl SynthLanguage for AstNode<SimpleOp> {
                     if (*x != 0i32) && (*y != 0i32) { Some(1) } else { Some(0) }
                 })
             },
-            SimpleOp::Op(sym) if sym.as_str() == "&&" => {
+            SimpleOp::Op(sym) if sym.as_str() == "||" => {
                 let x = &args[0];
                 let y = &args[1];
                 map!(get_cvec, x, y => {
                     if (*x != 0i32) || (*y != 0i32) { Some(1) } else { Some(0) }
                 })
             },
-
             op => vec![],
         }
     }
 
-    fn initialize_vars(synth: &mut Synthesizer<Self>, vars: Vec<String>) {
+    fn initialize_vars(egraph: &mut EGraph<Self, SynthAnalysis>, vars: &[String]) {
         let consts = vec![Some(-1), Some(0), Some(1), Some(10)];
         let cvecs = self_product(&consts, vars.len());
-
-        println!("{:?}", cvecs);
-
-        let mut egraph = EGraph::new(SynthAnalysis {
-            cvec_len: cvecs[0].len()
-        });
 
         for (i, v) in vars.iter().enumerate() {
             let var = Self::mk_var(Symbol::from(v.clone()));
@@ -341,10 +334,6 @@ impl SynthLanguage for AstNode<SimpleOp> {
             let cvec = cvecs[i].clone();
             egraph[id].data.cvec = cvec;
         }
-
-        println!("{:?}", egraph);
-
-        synth.egraph = egraph;
     }
 
     fn to_var(&self) -> Option<Symbol> {
@@ -369,11 +358,122 @@ impl SynthLanguage for AstNode<SimpleOp> {
         Self::new(SimpleOp::Int(c), vec![])
     }
 
-    fn validate(
-        synth: &mut Synthesizer<Self>,
-        lhs: &Pattern<Self>,
-        rhs: &Pattern<Self>
-    ) -> ValidationResult {
-        ValidationResult::Valid
+    fn validate(lhs: &Pattern<Self>, rhs: &Pattern<Self>) -> ValidationResult {
+        // Future work: add type check
+        let mut cfg = z3::Config::new();
+        cfg.set_timeout_msec(1000);
+        let ctx = z3::Context::new(&cfg);
+        let solver = z3::Solver::new(&ctx);
+        let lexpr = egg_to_z3(&ctx, Self::instantiate(lhs).as_ref());
+        let rexpr = egg_to_z3(&ctx, Self::instantiate(rhs).as_ref());
+        solver.assert(&lexpr._eq(&rexpr).not());
+        match solver.check() {
+            z3::SatResult::Unsat => ValidationResult::Valid,
+            z3::SatResult::Unknown => ValidationResult::Unknown,
+            z3::SatResult::Sat => ValidationResult::Invalid,
+        }
     }
+}
+
+fn egg_to_z3<'a>(ctx: &'a z3::Context, expr: &[AstNode<SimpleOp>]) 
+    -> z3::ast::Int<'a> 
+{
+    let mut buf: Vec<z3::ast::Int> = vec![];
+    let zero = z3::ast::Int::from_i64(ctx, 0);
+    let one = z3::ast::Int::from_i64(ctx, 1);
+    for node in expr.as_ref().iter() {
+        let args = node.args();
+        match node.operation() {
+            SimpleOp::Int(n) => buf.push(z3::ast::Int::from_i64(ctx, *n as i64)),
+            SimpleOp::Bool(b) => buf.push(z3::ast::Int::from_i64(ctx, *b as i64)),
+            SimpleOp::Op(sym) if sym.as_str() == "neg" => {
+                let t = &buf[usize::from(args[0])];
+                buf.push(z3::ast::Int::unary_minus(t))
+            },
+            SimpleOp::Op(sym) if sym.as_str() == "+" => {
+                let l = &buf[usize::from(args[0])];
+                let r = &buf[usize::from(args[1])];
+                buf.push(z3::ast::Int::add(ctx, &[l, r]))
+            },
+            SimpleOp::Op(sym) if sym.as_str() == "-" => {
+                let l = &buf[usize::from(args[0])];
+                let r = &buf[usize::from(args[1])];
+                buf.push(z3::ast::Int::sub(ctx, &[l, r]))
+            },
+            SimpleOp::Op(sym) if sym.as_str() == "*" => {
+                let l = &buf[usize::from(args[0])];
+                let r = &buf[usize::from(args[1])];
+                buf.push(z3::ast::Int::mul(ctx, &[l, r]))
+            },
+            SimpleOp::Op(sym) if sym.as_str() == "/" => {
+                let l = &buf[usize::from(args[0])];
+                let r = &buf[usize::from(args[1])];
+                buf.push(z3::ast::Bool::ite(
+                    &r._eq(&zero),
+                    &zero,
+                    &z3::ast::Int::div(l, r)
+                ))
+            },
+            SimpleOp::Op(sym) if sym.as_str() == ">" => {
+                let l = &buf[usize::from(args[0])];
+                let r = &buf[usize::from(args[1])];
+                buf.push(z3::ast::Bool::ite(&z3::ast::Int::gt(l, r), &one, &zero))
+            },
+            SimpleOp::Op(sym) if sym.as_str() == "<" => {
+                let l = &buf[usize::from(args[0])];
+                let r = &buf[usize::from(args[1])];
+                buf.push(z3::ast::Bool::ite(&z3::ast::Int::lt(l, r), &one, &zero))
+            }, 
+            SimpleOp::Op(sym) if sym.as_str() == ">=" => {
+                let l = &buf[usize::from(args[0])];
+                let r = &buf[usize::from(args[1])];
+                buf.push(z3::ast::Bool::ite(&z3::ast::Int::ge(l, r), &one, &zero))
+            },
+            SimpleOp::Op(sym) if sym.as_str() == "<=" => {
+                let l = &buf[usize::from(args[0])];
+                let r = &buf[usize::from(args[1])];
+                buf.push(z3::ast::Bool::ite(&z3::ast::Int::le(l, r), &one, &zero))
+            },
+            SimpleOp::Op(sym) if sym.as_str() == "==" => {
+                let l = &buf[usize::from(args[0])];
+                let r = &buf[usize::from(args[1])];
+                buf.push(z3::ast::Bool::ite(&z3::ast::Int::_eq(l, r), &one, &zero))
+            }, 
+            SimpleOp::Op(sym) if sym.as_str() == "!=" => {
+                let l = &buf[usize::from(args[0])];
+                let r = &buf[usize::from(args[1])];
+                buf.push(z3::ast::Bool::ite(&z3::ast::Int::_eq(l, r), &zero, &one))
+            },
+            SimpleOp::Op(sym) if sym.as_str() == "!" => {
+                let t = &buf[usize::from(args[0])];
+                buf.push(z3::ast::Bool::ite(&t._eq(&zero), &one, &zero))
+            },
+            SimpleOp::Op(sym) if sym.as_str() == "&&" => {
+                let l = &buf[usize::from(args[0])];
+                let r = &buf[usize::from(args[1])];
+                let l_nonzero = z3::ast::Bool::not(&l._eq(&zero));
+                let r_nonzero = z3::ast::Bool::not(&r._eq(&zero));
+                buf.push(z3::ast::Bool::ite(
+                    &z3::ast::Bool::and(ctx, &[&l_nonzero, &r_nonzero]), 
+                    &one, 
+                    &zero
+                ))
+            },
+            SimpleOp::Op(sym) if sym.as_str() == "||" => {
+                let l = &buf[usize::from(args[0])];
+                let r = &buf[usize::from(args[1])];
+                let l_nonzero = z3::ast::Bool::not(&l._eq(&zero));
+                let r_nonzero = z3::ast::Bool::not(&r._eq(&zero));
+                buf.push(z3::ast::Bool::ite(
+                    &z3::ast::Bool::or(ctx, &[&l_nonzero, &r_nonzero]), 
+                    &one, 
+                    &zero
+                ))
+            },
+            SimpleOp::Op(sym) if node.is_empty() =>
+                buf.push(z3::ast::Int::new_const(ctx, sym.as_str())),
+            op => unreachable!(),
+        }
+    }
+    buf.pop().unwrap()
 }

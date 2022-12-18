@@ -17,9 +17,10 @@ env_logger = "0.10.0"
 itertools = "0.10.5"
 log = "0.4.17"
 nom = "7.1.1"
-rsmt2 = "0.16.2"
 serde = { version = "1.0.147", features = ["derive"] }
 thiserror = "1.0.37"
 ruler = { path = "./ruler" }
 num = "0.4.0"
 num-bigint = { version = "0.4.3", features = ["rand"] }
+#z3 = "0.10.0"
+z3 = {version = "0.10.0", features = ["static-link-z3"]}

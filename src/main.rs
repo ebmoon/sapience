@@ -12,10 +12,9 @@ use std::{
     path::PathBuf,
 };
 use ruler::{
-    SynthParams,
+    Limits,
     SynthLanguage,
-    synth::synth,
-    equality::{Equality, SerializedEq},
+    equality::Equality,
     enumo::{ruleset::Ruleset, workload::Workload},
 };
 
@@ -59,8 +58,16 @@ fn main() {
         egg::rewrite!("plus commute"; "(+ ?x ?y)" => "(+ ?y ?x)"),
         egg::rewrite!("plus zero"; "(+ ?x 0)" => "?x"),
     ];
-    
 
+    // Basic rewrite rules of lambda calculus
+    let lam_rules = [
+        "(@ (lam $0) ?x) ==> ?x"
+    ];
+
+    let mut prior_rules = Ruleset::<AstNode<SimpleOp>>::default();
+    // prior_rules.extend(Ruleset::from_str_vec(&lam_rules));
+
+    // Constants and symbols of LIA
     let workload = Workload::iter_lang(
         3, 
         &["-1", "0", "1"], 
@@ -68,18 +75,16 @@ fn main() {
         &["neg", "!"], 
         &["+", "-", "*", "/", "<", "<=", ">", ">=", "==", "!=", "&&", "||"]
     );
-    let synthParam = SynthParams {
-        prior_rules: Ruleset::<AstNode<SimpleOp>>::default(),
-        workload: workload,
-        node_limit: 300000,
-        iter_limit: 3,
-        time_limit: 30,
-    };
-    
-    let rules = synth(synthParam);
 
+    // Learn rules of LIA
+    let rules = <AstNode<SimpleOp> as SynthLanguage>::run_workload (
+        workload,
+        prior_rules,
+        Limits::default(),
+    );
+    
     for eq in rules.0.iter() {
-        println!("{:?}", <Equality<AstNode<SimpleOp>> as Into<SerializedEq>>::into(eq.clone()));
+        println!("{:?}", eq.clone());
     }
 
     let learner = Learner::gen(prog, dsrs, opts.beams, opts.lps);
