@@ -1,26 +1,20 @@
 use crate::{
     beam::{PartialLibCost, LibExtractor},
     co_occurrence::COBuilder,
-    sexp::Program,
-    ast_node::{Arity, AstNode, Expr, Pretty, Printable},
-    lang::SimpleOp,
+    ast_node::{Arity, AstNode, Expr, Printable},
     teachable::{Teachable, BindingExpr},
     learn::{LearnedLibrary, LibId},
 };
-use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     fmt::{self, Debug, Display, Formatter},
     hash::Hash,
     io,
-    marker::PhantomData,
-    time::{Duration, Instant},
+    time::{Duration},
 };
 use log::{debug, info};
 use egg::{
-    AstSize, 
     Analysis, 
-    CostFunction, 
     EGraph, 
     Id, 
     RecExpr, 
@@ -141,10 +135,10 @@ where
 
         let aeg = runner.egraph;
 
-        /// Compute co-occurence between e-graph nodes
+        // Compute co-occurence between e-graph nodes
         let co_occurs = COBuilder::new(&aeg, roots).run();
 
-        /// Run anti-unification
+        // Run anti-unification
         let mut learned_lib = LearnedLibrary::new(&aeg, co_occurs);
         learned_lib.deduplicate(&aeg);
 

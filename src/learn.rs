@@ -447,15 +447,7 @@ where
             });
         let index = index + num_binders;
 
-        let mut res = PartialExpr::Hole(index);
-
-        /*
-        for i in (0..num_binders).rev() {
-            res = Op::apply(res, Op::var(i).into()).into();
-        }
-        */
-
-        res
+        PartialExpr::Hole(index)
     });
 
     debug!("{:?}", fun);
@@ -490,13 +482,8 @@ where
     // Now apply the new function to the metavariables in reverse order so they
     // match the correct de Bruijn indexed variable.
     let mut body = Op::lib_var(ix).into();
-    while let Some((metavar, binders)) = metavars.pop() {
-        let mut fn_arg = PartialExpr::Hole(metavar);
-        /*
-        for _i in 0..binders {
-            fn_arg = Op::lambda(fn_arg).into();
-        }
-        */
+    while let Some((metavar, _binders)) = metavars.pop() {
+        let fn_arg = PartialExpr::Hole(metavar);
         body = Op::apply(body, fn_arg).into();
     }
 

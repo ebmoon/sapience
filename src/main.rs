@@ -3,19 +3,17 @@ use egg::{AstSize, CostFunction, RecExpr, Rewrite, Pattern};
 use sapience::{
     beam::PartialLibCost,
     sexp::Program,
-    ast_node::{combine_exprs, Expr, Pretty, AstNode},
+    ast_node::{combine_exprs, Expr, AstNode},
     lang::SimpleOp,
     learner::Learner,
 };
 use std::{
-    convert::TryFrom,
     fs,
     path::PathBuf,
 };
 use ruler::{
     Limits,
     SynthLanguage,
-    equality::Equality,
     enumo::{ruleset::Ruleset, workload::Workload},
 };
 
@@ -51,8 +49,8 @@ fn main() {
     let initial_expr: RecExpr<_> = combine_exprs(prog.clone());
     let initial_cost = AstSize.cost_rec(&initial_expr);
 
-    println!("{}", initial_expr.clone());
     println!("Initial expression (cost {}):", initial_cost);
+    println!("{}", initial_expr.clone());
     println!();
 
     // Basic rewrite rules of lambda calculus
@@ -95,7 +93,9 @@ fn main() {
     let lifted = learner.learn();
     let final_cost = AstSize.cost_rec(&lifted);
 
+    println!("Final expression (Cost {}):", final_cost);
     println!("{}", lifted.clone());
-    println!("final cost: {}", final_cost);
+    println!();
 
+    println!("Cost {} -> {}", initial_cost, final_cost);
 }

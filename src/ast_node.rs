@@ -1,5 +1,5 @@
 //! Abstract syntax trees.
-use egg::{FromOp, Id, Language, Pattern, EGraph, Symbol};
+use egg::{FromOp, Id, Language};
 use serde::{Deserialize, Serialize};
 use std::{
     error::Error,

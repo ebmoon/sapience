@@ -10,13 +10,7 @@ use crate::{
     learn::{LibId, ParseLibIdError},
     teachable::{BindingExpr, DeBruijnIndex, Teachable},
 };
-use egg::{FromOp, Id, Language, Pattern, EGraph, Symbol};
-use num::{
-    Integer,
-    ToPrimitive,
-    Zero,
-    bigint::{BigInt, RandBigInt, ToBigInt},
-};
+use egg::{Id, Pattern, EGraph, Symbol};
 use ruler::{
     map,
     util::*,
@@ -65,7 +59,7 @@ impl Arity for SimpleOp {
             | Self::Int(_) 
             | Self::Bool(_)
             | Self::Op(_) => 0,
-            Self::Lambda | Self::Shift | Self::LibVar(_) | Self::List => 1,
+            Self::Lambda | Self::Shift | Self::List => 1,
             Self::Apply | Self::Lib(_) => 2,
             Self::If => 3,
         }
@@ -123,10 +117,6 @@ impl FromStr for SimpleOp {
             "apply" | "@" => Self::Apply,
             "lambda" | "λ" => Self::Lambda,
             "list" => Self::List,
-            // "+" => Self::Op(input.into()),
-            // "-" => Self::Op(input.into()),
-            // "*" => Self::Op(input.into()),
-            // "/" => Self::Op(input.into()),
             "if" => Self::If,
             input => input
                 .parse()
@@ -320,7 +310,7 @@ impl SynthLanguage for AstNode<SimpleOp> {
                     if (*x != 0i32) || (*y != 0i32) { Some(1) } else { Some(0) }
                 })
             },
-            op => vec![],
+            _op => vec![],
         }
     }
 
@@ -353,7 +343,7 @@ impl SynthLanguage for AstNode<SimpleOp> {
 
     fn mk_constant(
         c: Self::Constant,
-        egraph: &mut EGraph<Self, SynthAnalysis>
+        _egraph: &mut EGraph<Self, SynthAnalysis>
     ) -> Self {
         Self::new(SimpleOp::Int(c), vec![])
     }
@@ -472,7 +462,7 @@ fn egg_to_z3<'a>(ctx: &'a z3::Context, expr: &[AstNode<SimpleOp>])
             },
             SimpleOp::Op(sym) if node.is_empty() =>
                 buf.push(z3::ast::Int::new_const(ctx, sym.as_str())),
-            op => unreachable!(),
+            _op => unreachable!(),
         }
     }
     buf.pop().unwrap()
