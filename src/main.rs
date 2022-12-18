@@ -61,7 +61,13 @@ fn main() {
     ];
     
 
-    let workload = Workload::iter_lang(5, &["0", "1"], &["a", "b", "c"], &["--"], &["+", "-", "*", "/"]);
+    let workload = Workload::iter_lang(
+        3, 
+        &["-1", "0", "1"], 
+        &["a", "b", "c"], 
+        &["neg", "!"], 
+        &["+", "-", "*", "/", "<", "<=", ">", ">=", "==", "!=", "&&", "||"]
+    );
     let synthParam = SynthParams {
         prior_rules: Ruleset::<AstNode<SimpleOp>>::default(),
         workload: workload,

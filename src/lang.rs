@@ -231,17 +231,102 @@ impl SynthLanguage for AstNode<SimpleOp> {
         match self.operation() {
             SimpleOp::Int(n) => vec![Some(*n); cvec_len],
             SimpleOp::Bool(b) => vec![Some(*b as i32); cvec_len],
+            SimpleOp::Op(sym) if sym.as_str() == "neg" => {
+                let x = &args[0];
+                map!(get_cvec, x => Some(-x))
+            },
             SimpleOp::Op(sym) if sym.as_str() == "+" => {
                 let x = &args[0];
                 let y = &args[1];
                 map!(get_cvec, x, y => Some(x + y))
             },
+            SimpleOp::Op(sym) if sym.as_str() == "-" => {
+                let x = &args[0];
+                let y = &args[1];
+                map!(get_cvec, x, y => Some(x - y))
+            },
+            SimpleOp::Op(sym) if sym.as_str() == "*" => {
+                let x = &args[0];
+                let y = &args[1];
+                map!(get_cvec, x, y => Some(x * y))
+            },
+            SimpleOp::Op(sym) if sym.as_str() == "/" => {
+                let x = &args[0];
+                let y = &args[1];
+                map!(get_cvec, x, y => {
+                    if *y == 0i32 { None } else { Some(x / y) }
+                })
+            },
+            SimpleOp::Op(sym) if sym.as_str() == ">" => {
+                let x = &args[0];
+                let y = &args[1];
+                map!(get_cvec, x, y => {
+                    if x > y { Some(1) } else { Some(0) }
+                })
+            },
+            SimpleOp::Op(sym) if sym.as_str() == "<" => {
+                let x = &args[0];
+                let y = &args[1];
+                map!(get_cvec, x, y => {
+                    if x < y { Some(1) } else { Some(0) }
+                })
+            }, 
+            SimpleOp::Op(sym) if sym.as_str() == ">=" => {
+                let x = &args[0];
+                let y = &args[1];
+                map!(get_cvec, x, y => {
+                    if x >= y { Some(1) } else { Some(0) }
+                })
+            },
+            SimpleOp::Op(sym) if sym.as_str() == "<=" => {
+                let x = &args[0];
+                let y = &args[1];
+                map!(get_cvec, x, y => {
+                    if x <= y { Some(1) } else { Some(0) }
+                })
+            },
+
+            SimpleOp::Op(sym) if sym.as_str() == "==" => {
+                let x = &args[0];
+                let y = &args[1];
+                map!(get_cvec, x, y => {
+                    if x == y { Some(1) } else { Some(0) }
+                })
+            }, 
+            SimpleOp::Op(sym) if sym.as_str() == "!=" => {
+                let x = &args[0];
+                let y = &args[1];
+                map!(get_cvec, x, y => {
+                    if x != y { Some(1) } else { Some(0) }
+                })
+            },
+            SimpleOp::Op(sym) if sym.as_str() == "!" => {
+                let x = &args[0];
+                map!(get_cvec, x => {
+                    if *x != 0i32 { Some(1) } else { Some(0) }
+                })
+            },
+            SimpleOp::Op(sym) if sym.as_str() == "&&" => {
+                let x = &args[0];
+                let y = &args[1];
+                map!(get_cvec, x, y => {
+                    if (*x != 0i32) && (*y != 0i32) { Some(1) } else { Some(0) }
+                })
+            },
+            SimpleOp::Op(sym) if sym.as_str() == "&&" => {
+                let x = &args[0];
+                let y = &args[1];
+                map!(get_cvec, x, y => {
+                    if (*x != 0i32) || (*y != 0i32) { Some(1) } else { Some(0) }
+                })
+            },
+
             op => vec![],
         }
     }
 
     fn initialize_vars(synth: &mut Synthesizer<Self>, vars: Vec<String>) {
-        let consts = vec![Some(-1), Some(0), Some(1)];
+        let consts = vec![Some(-1), Some(0), Some(1), Some(10)];
         let cvecs = self_product(&consts, vars.len());
 
         println!("{:?}", cvecs);
