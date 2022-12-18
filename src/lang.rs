@@ -10,10 +10,25 @@ use crate::{
     learn::{LibId, ParseLibIdError},
     teachable::{BindingExpr, DeBruijnIndex, Teachable},
 };
-use egg::{Symbol};
+use egg::{FromOp, Id, Language, Pattern, EGraph, Symbol};
+use num::{
+    Integer,
+    ToPrimitive,
+    Zero,
+    bigint::{BigInt, RandBigInt, ToBigInt},
+};
+use ruler::{
+    map,
+    util::*,
+    SynthLanguage, 
+    Synthesizer, 
+    SynthAnalysis, 
+    CVec, 
+    ValidationResult,
+};
 
 /// Simplest language to use with babble
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Copy)]
 pub enum SimpleOp {
 	/// An integer literal
 	Int(i32),
@@ -91,7 +106,7 @@ impl Display for SimpleOp {
                 return write!(f, "${}", index);
             }
             Self::Symbol(sym) => {
-                return write!(f, "{}", sym);
+                return write!(f, "sym{}", sym);
             }
             Self::List => "list",
         };
@@ -202,5 +217,78 @@ impl Printable for SimpleOp {
             }
             (op, _) => write!(printer.writer, "{} ???", op),
         }
+    }
+}
+
+impl SynthLanguage for AstNode<SimpleOp> {
+    type Constant = i32;
+
+    fn eval<'a, F>(&'a self, cvec_len: usize, mut get_cvec: F) -> CVec<Self>
+    where 
+        F: FnMut(&'a Id) -> &'a CVec<Self> 
+    {
+        let args = self.args();
+        match self.operation() {
+            SimpleOp::Int(n) => vec![Some(*n); cvec_len],
+            SimpleOp::Bool(b) => vec![Some(*b as i32); cvec_len],
+            SimpleOp::Op(sym) if sym.as_str() == "+" => {
+                let x = &args[0];
+                let y = &args[1];
+                map!(get_cvec, x, y => Some(x + y))
+            },
+            op => vec![],
+        }
+    }
+
+    fn initialize_vars(synth: &mut Synthesizer<Self>, vars: Vec<String>) {
+        let consts = vec![Some(-1), Some(0), Some(1)];
+        let cvecs = self_product(&consts, vars.len());
+
+        println!("{:?}", cvecs);
+
+        let mut egraph = EGraph::new(SynthAnalysis {
+            cvec_len: cvecs[0].len()
+        });
+
+        for (i, v) in vars.iter().enumerate() {
+            let var = Self::mk_var(Symbol::from(v.clone()));
+            let id = egraph.add(var);
+            let cvec = cvecs[i].clone();
+            egraph[id].data.cvec = cvec;
+        }
+
+        println!("{:?}", egraph);
+
+        synth.egraph = egraph;
+    }
+
+    fn to_var(&self) -> Option<Symbol> {
+        match self.operation() {
+            SimpleOp::Op(v) if self.args().len() == 0 => Some(*v),
+            _ => None,
+        }
+    }
+
+    fn mk_var(sym: Symbol) -> Self {
+        Self::new(SimpleOp::Op(sym), vec![])
+    }
+
+    fn is_constant(&self) -> bool {
+        self.is_empty()
+    }
+
+    fn mk_constant(
+        c: Self::Constant,
+        egraph: &mut EGraph<Self, SynthAnalysis>
+    ) -> Self {
+        Self::new(SimpleOp::Int(c), vec![])
+    }
+
+    fn validate(
+        synth: &mut Synthesizer<Self>,
+        lhs: &Pattern<Self>,
+        rhs: &Pattern<Self>
+    ) -> ValidationResult {
+        ValidationResult::Valid
     }
 }

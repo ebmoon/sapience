@@ -10,6 +10,6 @@ pub use workload::*;
 mod filter;
 mod metric;
 mod pattern;
-mod ruleset;
+pub mod ruleset;
 mod sexp;
-mod workload;
+pub mod workload;

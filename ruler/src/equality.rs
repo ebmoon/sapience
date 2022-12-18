@@ -5,7 +5,7 @@ use std::{str::FromStr, sync::Arc};
 
 use crate::*;
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(from = "SerializedEq")]
 #[serde(into = "SerializedEq")]
 #[serde(bound = "L: SynthLanguage")]
@@ -88,7 +88,7 @@ impl<L: SynthLanguage> Equality<L> {
 }
 
 #[derive(Clone, Serialize, Debug, Deserialize)]
-struct SerializedEq {
+pub struct SerializedEq {
     lhs: String,
     rhs: String,
 }

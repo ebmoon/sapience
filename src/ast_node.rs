@@ -10,20 +10,6 @@ use std::{
     vec,
 };
 use thiserror::Error;
-use num::{
-    Integer,
-    ToPrimitive,
-    Zero,
-    bigint::{BigInt, RandBigInt, ToBigInt},
-};
-use ruler::{
-    SynthLanguage, 
-    Synthesizer, 
-    SynthAnalysis, 
-    CVec, 
-    ValidationResult,
-};
-
 
 /// An abstract syntax tree node representing an operation of type `Op` applied
 /// to arguments of type `T`.
@@ -362,53 +348,5 @@ where
 impl<Op: Display> Display for AstNode<Op> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         self.operation.fmt(f)
-    }
-}
-
-pub type Constant = BigInt;
-
-impl<Op> SynthLanguage for AstNode<Op>
-where 
-    Op: Debug + Arity + FromStr + Clone + Ord + Hash + Sync + Send + Display + 'static,
-    <Op as FromStr>::Err: Error,
-{
-    type Constant = Constant;
-
-    fn eval<'a, F>(&'a self, cvec_len: usize, _get_cvec: F) -> CVec<Self>
-    where 
-        F: FnMut(&'a Id) -> &'a CVec<Self> 
-    {
-        unimplemented!();
-    }
-
-    fn initialize_vars(synth: &mut Synthesizer<Self>, vars: Vec<String>) {
-        unimplemented!();
-    }
-
-    fn to_var(&self) -> Option<Symbol> {
-        unimplemented!();
-    }
-
-    fn mk_var(sym: Symbol) -> Self {
-        unimplemented!();
-    }
-
-    fn is_constant(&self) -> bool {
-        unimplemented!();
-    }
-
-    fn mk_constant(
-        c: Self::Constant,
-        egraph: &mut EGraph<Self, SynthAnalysis>
-    ) -> Self {
-        unimplemented!();
-    }
-
-    fn validate(
-        synth: &mut Synthesizer<Self>,
-        lhs: &Pattern<Self>,
-        rhs: &Pattern<Self>
-    ) -> ValidationResult {
-        unimplemented!();
     }
 }

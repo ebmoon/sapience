@@ -2,7 +2,7 @@ use clap::Parser;
 use egg::{AstSize, CostFunction, RecExpr};
 use sapience::{
     sexp::Program,
-    ast_node::{combine_exprs, Expr, Pretty},
+    ast_node::{combine_exprs, Expr, Pretty, AstNode},
     lang::SimpleOp,
     learner::Learner,
 };
@@ -11,7 +11,13 @@ use std::{
     fs,
     path::PathBuf,
 };
-use ruler;
+use ruler::{
+    SynthParams,
+    SynthLanguage,
+    synth::synth,
+    equality::{Equality, SerializedEq},
+    enumo::{ruleset::Ruleset, workload::Workload},
+};
 
 #[derive(Parser)]
 #[clap(version, author, about)]
@@ -53,6 +59,22 @@ fn main() {
         egg::rewrite!("plus commute"; "(+ ?x ?y)" => "(+ ?y ?x)"),
         egg::rewrite!("plus zero"; "(+ ?x 0)" => "?x"),
     ];
+    
+
+    let workload = Workload::iter_lang(5, &["0", "1"], &["a", "b", "c"], &["--"], &["+", "-", "*", "/"]);
+    let synthParam = SynthParams {
+        prior_rules: Ruleset::<AstNode<SimpleOp>>::default(),
+        workload: workload,
+        node_limit: 300000,
+        iter_limit: 3,
+        time_limit: 30,
+    };
+    
+    let rules = synth(synthParam);
+
+    for eq in rules.0.iter() {
+        println!("{:?}", <Equality<AstNode<SimpleOp>> as Into<SerializedEq>>::into(eq.clone()));
+    }
 
     let learner = Learner::gen(prog, dsrs, opts.beams, opts.lps);
 

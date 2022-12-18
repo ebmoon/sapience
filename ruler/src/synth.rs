@@ -201,6 +201,7 @@ impl<L: SynthLanguage> Synthesizer<L> {
         while selected.len() < step_size {
             let popped = sorted_candidates.pop();
             if let Some((name, eq)) = popped {
+                println!("{:?}", eq);
                 if let ValidationResult::Valid = L::validate(self, &eq.lhs, &eq.rhs) {
                     selected.insert(name, eq);
                 }

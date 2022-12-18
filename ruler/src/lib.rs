@@ -13,11 +13,11 @@ pub use util::*;
 mod bv;
 mod derive;
 pub mod enumo;
-mod equality;
+pub mod equality;
 mod interval;
 mod language;
-mod synth;
-mod util;
+pub mod synth;
+pub mod util;
 
 pub type Id = egg::Id;
 pub type Symbol = egg::Symbol;
